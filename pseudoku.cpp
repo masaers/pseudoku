@@ -80,16 +80,15 @@ public:
                   int col,
                   const cell_type& mask,
                   solved_it_T&& solved_it) {
-    // bool result = false;
-    bool solved_before = solved(row, col);
-    (*this)(row, col) &= mask;
-    if (! solved_before && solved(row, col)) {
-      *solved_it = std::make_pair(row, col);
-      ++solved_it;
-      --unknown_m;
-      // result = true;
+    cell_type& cell = (*this)(row, col);
+    if (! solved(cell)) {
+      cell &= mask;
+      if (solved(cell)) {
+        *solved_it = std::make_pair(row, col);
+        ++solved_it;
+        --unknown_m;
+      }
     }
-    // return result;
   }
   ///
   /// Only applies the mask if it solves the cell.
@@ -99,10 +98,10 @@ public:
                 int col,
                 const cell_type& mask,
                 solved_it_T&& solved_it) {
-    if (! solved(row, col)) {
-      cell_type& cell = (*this)(row, col);
+    cell_type& cell = (*this)(row, col);
+    if (! solved(cell)) {
       const cell_type new_cell = cell & mask;
-      if (new_cell.count() == 1) {
+      if (solved(new_cell)) {
         cell = new_cell;
         *solved_it = std::make_pair(row, col);
         ++solved_it;
@@ -119,7 +118,8 @@ public:
     return board_m[ij.first][ij.second];
   }
   bool solved() const { return unknown_m == 0; }
-  bool solved(int i, int j) const { return (*this)(i, j).count() == 1; }
+  bool solved(const cell_type& cell) const { return cell.count() == 1; }
+  bool solved(const int i, const int j) const { return solved((*this)(i, j)); }
   const int unknown() const { return unknown_m; }
   int frow(int field, int cell) const { return ((field / M) * M) + (cell / M); }
   int fcol(int field, int cell) const { return ((field % M) * M) + (cell % M); }

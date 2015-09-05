@@ -7,8 +7,7 @@
 # Settings
 #
 
-COM_MASAERS_ROOT=$(HOME)
-CXXFLAGS+=-Wall -pedantic -std=c++11 -g -O3 -I$(COM_MASAERS_ROOT)
+CXXFLAGS+=-Wall -pedantic -std=c++11 -g -O3
 LDFLAGS=
 
 PROG_NAMES=
