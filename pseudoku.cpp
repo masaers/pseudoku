@@ -61,14 +61,15 @@ public:
       }
     }
   }
-  void print(std::ostream& os) const {
+  friend std::ostream& operator<<(std::ostream& os, const pseudoku& board) {
     for (int i = 0; i < N; ++i) {
       for (int j = 0; j < N; ++j) {
         if (j != 0) { os << ' '; }
-        os << (*this)(i, j);
+        os << board(i, j);
       }
       os << std::endl;
     }
+    return os;
   }
   const cell_type get_known_buddies(const int row, const int col) {
     using namespace std;
@@ -393,8 +394,7 @@ int main(const int argc, const char** argv) {
     cerr << "Provided board not valid." << endl;
     return EXIT_FAILURE;
   }
-  board.print(cout);
-  cout << endl;
+  cout << board << endl;
   
   solve(board);
   
@@ -402,8 +402,7 @@ int main(const int argc, const char** argv) {
     cout << "Failed to find a solution :-(" << endl;
   }
   cout << "Board is " << (board.valid() ? "" : "in") << "valid." << endl;
-  board.print(cout);
-  cout << endl;
+  cout << board << endl;
   
   return EXIT_SUCCESS;
 }
