@@ -11,6 +11,17 @@ static const int N = M*M;
 
 typedef std::bitset<N> cell_type;
 
+std::ostream& operator<<(std::ostream& os, const cell_type& cell) {
+  static const char* padding = "         ";
+  os << (padding + (cell.count()));
+  for (int k = 0; k < N; ++k) {
+    if (cell[k]) {
+      os << (k + 1);
+    }
+  }
+  return os;
+}
+
 struct null_iterator {
   const null_iterator& operator*() const { return *this; }
   template<typename T>
@@ -21,38 +32,31 @@ struct null_iterator {
 
 class pseudoku {
 public:
-  void read(std::istream& is) {
+  template<typename solved_it_T>
+  void read(std::istream& is, solved_it_T&& solved_it) {
     unknown_m = 0;
     int number;
-    for (int i = 0; i < N; ++i) {
-      for (int j = 0; j < N; ++j) {
+    for (int row = 0; row < N; ++row) {
+      for (int col = 0; col < N; ++col) {
 	is >> number;
-	(*this)(i, j).reset();
+        cell_type& cell = (*this)(row, col);
+	cell.reset();
 	if (number == 0) {
-	  for (int k = 0; k < N; ++k) {
-	    (*this)(i, j).set(k);
-	  }
+          cell = ~cell;
 	  ++unknown_m;
 	} else {
-	  (*this)(i, j).set(number - 1);
+          cell.set(number - 1);
+          *solved_it = std::make_pair(row, col);
+          ++solved_it;
 	}
       }
     }
   }
-  static std::ostream& print_cell(std::ostream& os, const cell_type& cell) {
-    static const char* padding = "          ";
-    os << (padding + (cell.count()));
-    for (int k = 0; k < N; ++k) {
-      if (cell[k]) {
-        os << (k + 1);
-      }
-    }
-    return os;
-  }
   void print(std::ostream& os) const {
     for (int i = 0; i < N; ++i) {
       for (int j = 0; j < N; ++j) {
-        print_cell(os, (*this)(i, j));
+        if (j != 0) { os << ' '; }
+        os << (*this)(i, j);
       }
       os << std::endl;
     }
@@ -242,7 +246,7 @@ int smarter(pseudoku& s) {
         }
       }
       // Find unique sets and eliminate their members from other cells
-      // in the same column
+      // in the same row
       for (auto it = begin(uniq_sets); it != end(uniq_sets); ++it) {
         if (it->first.count() == it->second.size()) {
           for (auto col = 0; col < N; ++col) {
@@ -366,7 +370,7 @@ int main(const int argc, const char** argv) {
   using namespace std;
   
   pseudoku start;
-  start.read(cin);
+  start.read(cin, null_iterator());
   start.print(cout);
   cout << endl;
   if (! start.valid()) {
