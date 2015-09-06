@@ -170,16 +170,21 @@ public:
   typedef std::pair<int, int> coord_type;
   typedef std::deque<coord_type> agenda_type;
   agenda_type& agenda() { return agenda_m; }
+  int clear_agenda(pseudoku& board) {
+    int result = 0;
+    while (! empty()) {
+      const int row = top_row();
+      const int col = top_col();
+      pop();
+      board.propagate_solution(row, col, back_inserter(agenda_m));
+      ++result;
+    }
+    return result;
+  }
   void operator()(pseudoku& s) {
     using namespace std;
     auto solved_it = back_inserter(agenda_m);
-    // brute_force_obvious(s, solved_it);
-    while (! empty()) {
-      const int i = top_row();
-      const int j = top_col();
-      pop();
-      s.propagate_solution(i, j, solved_it);
-    }
+    clear_agenda(s);
     while (true) {
       for (int row = 0; row < N; ++row) {
         // Analyze row
@@ -301,15 +306,8 @@ public:
           forward |= s(s.frow(field, f), s.fcol(field, f));
         }
       } // fields
-      if (empty()) {
-        // Failed to solve any cells, give up.
+      if (clear_agenda(s) == 0) {
         break;
-      }
-      while (! empty()) {
-        const int i = top_row();
-        const int j = top_col();
-        pop();
-        s.propagate_solution(i, j, solved_it);
       }
     }
   }
@@ -383,7 +381,7 @@ int main(const int argc, const char** argv) {
   solve(board);
   
   if (! board.solved()) {
-    cout << "Failed to find a solution :-)" << endl;
+    cout << "Failed to find a solution :-(" << endl;
   }
   cout << "Board is " << (board.valid() ? "" : "in") << "valid." << endl;
   board.print(cout);
