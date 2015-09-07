@@ -5,6 +5,7 @@
 #include <functional>
 #include <unordered_map>
 #include <unordered_set>
+#include <algorithm>
 
 static const int M = 3;
 static const int N = M*M;
@@ -339,6 +340,65 @@ protected:
 }; // pseudoku_solver
 
 
+class brut_force_solver {
+public:
+  typedef std::pair<int, int> coord_type; 
+  typedef std::deque<coord_type> agenda_type;
+  agenda_type& agenda() { return agenda_m; }
+  int clear_agenda(pseudoku& board) {
+    int result = 0;
+    while (! empty()) {
+      const int row = top_row();
+      const int col = top_col();
+      pop();
+      board.propagate_solution(row, col, back_inserter(agenda_m));
+      ++result;
+    }
+    return result;
+  }
+  void operator()(pseudoku& board) {
+    using namespace std;
+    vector<coord_type> unsolved;
+    for (int row = 0; row < N; ++row) {
+      for (int col = 0; col < N; ++col) {
+        if (! board.solved(row, col)) {
+          unsolved.push_back(make_pair(row, col));
+        }
+      }
+    }
+    sort(begin(unsolved), end(unsolved),
+         [&](const coord_type& a, const coord_type& b) {
+           return board(a.first, a.second).count()
+             <    board(b.first, b.second).count();
+         });
+    const int row = unsolved.front().first;
+    const int col = unsolved.front().second;
+    const cell_type& cand = board(row, col);
+    cerr << "Brute-forcing (" << row << "," << col << "): " << cand << endl;
+    for (int n = 0; n < N; ++n) {
+      if (cand.test(n)) {
+        cerr << "Trying to commit to " << (n+1) << endl;
+        pseudoku b(board);
+        cell_type mask = ~cell_type();
+        mask.flip(n);
+        b.apply_mask(row, col, mask, back_inserter(agenda_m));
+        clear_agenda(b);
+        if (b.valid()) {
+          board = b;
+          break;
+        }
+      }
+    }
+  }
+  const int top_row() const { return agenda_m.front().first; }
+  const int top_col() const { return agenda_m.front().second; }
+  void pop() { agenda_m.pop_front(); }
+  bool empty() const { return agenda_m.empty(); }
+private:
+  agenda_type agenda_m;
+}; // brut_force_solver
+
+
 template<typename solved_it_T>
 int brute_force_obvious(pseudoku& s, solved_it_T&& solved_it) {
   int result = N*N;
@@ -398,11 +458,18 @@ int main(const int argc, const char** argv) {
   
   solve(board);
   
-  if (! board.solved()) {
-    cout << "Failed to find a solution :-(" << endl;
-  }
   cout << "Board is " << (board.valid() ? "" : "in") << "valid." << endl;
   cout << board << endl;
+  if (! board.solved()) {
+    cout << "Failed to find a solution :-(" << endl;
+    cout << "Attempting to brute-force the solution..." << endl;
+    brut_force_solver bf;
+    while (board.valid() && ! board.solved()) {
+      bf(board);
+      cout << "Board is " << (board.valid() ? "" : "in") << "valid." << endl;
+      cout << board << endl;
+    }
+  }
   
   return EXIT_SUCCESS;
 }
