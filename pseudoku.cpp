@@ -374,10 +374,8 @@ public:
     const int row = unsolved.front().first;
     const int col = unsolved.front().second;
     const cell_type& cand = board(row, col);
-    cerr << "Brute-forcing (" << row << "," << col << "): " << cand << endl;
     for (int n = 0; n < N; ++n) {
       if (cand.test(n)) {
-        cerr << "Trying to commit to " << (n+1) << endl;
         pseudoku b(board);
         cell_type mask = ~cell_type();
         mask.flip(n);
@@ -449,27 +447,45 @@ int main(const int argc, const char** argv) {
 
   pseudoku board;
   pseudoku_solver solve;
+  brut_force_solver brute_force;
+  int brute_forced_cells = 0;
+
   board.read(cin, back_inserter(solve.agenda()));
   if (! board.valid()) {
-    cerr << "Provided board not valid." << endl;
-    return EXIT_FAILURE;
+    cout << "Provided board not valid." << endl;
   }
   cout << board << endl;
-  
-  solve(board);
-  
-  cout << "Board is " << (board.valid() ? "" : "in") << "valid." << endl;
-  cout << board << endl;
-  if (! board.solved()) {
-    cout << "Failed to find a solution :-(" << endl;
-    cout << "Attempting to brute-force the solution..." << endl;
-    brut_force_solver bf;
-    while (board.valid() && ! board.solved()) {
-      bf(board);
+
+  // solve.clear_agenda(board);
+  // cout << "Board is " << (board.valid() ? "" : "in") << "valid." << endl;
+  // cout << board << endl;
+  // while (board.valid() && ! board.solved()) {
+  //   brute_force(board);
+  //   ++brute_forced_cells;
+  // }
+  // cout << "Board is " << (board.valid() ? "" : "in") << "valid." << endl;
+  // cout << board << endl;
+
+  while (board.valid() && ! board.solved()) {
+    solve(board);
+    cout << "Board is " << (board.valid() ? "" : "in") << "valid." << endl;
+    cout << board << endl;
+    if (! board.solved()) {
+      brute_force(board);
+      ++brute_forced_cells;
       cout << "Board is " << (board.valid() ? "" : "in") << "valid." << endl;
       cout << board << endl;
     }
   }
-  
-  return EXIT_SUCCESS;
+
+  if (board.valid()) {
+    cout << "Found a solution!";
+    if (brute_forced_cells > 0) {
+      cout << " (" << brute_forced_cells
+           << " cell" << (brute_forced_cells > 1 ? "s" : "")
+           << " had to be brute-forced)";
+    }
+    cout << endl;
+  }
+  return board.valid() ? EXIT_SUCCESS : EXIT_FAILURE;
 }
