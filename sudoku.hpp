@@ -249,12 +249,32 @@ namespace com_masaers {
       bool result = true;
       for (int i = 0; result && i < L.N; ++i) {
         cell_type row, col, field;
-        for (int j = 0; j < L.N; ++j) {
-          row   |= (*this)[L.pos_of_rowcell(i, j)];
-          col   |= (*this)[L.pos_of_colcell(i, j)];
-          field |= (*this)[L.pos_of_fieldcell(i, j)];
+        for (int j = 0; result && j < L.N; ++j) {
+          const auto& row_cell = (*this)[L.pos_of_rowcell(i, j)];
+          if (row_cell.count() == 1) {
+            if ((row & row_cell).any()) {
+              result = false;
+            } else {
+              row |= row_cell;
+            }
+          }
+          const auto& col_cell = (*this)[L.pos_of_colcell(i, j)];
+          if (col_cell.count() == 1) {
+            if ((col & col_cell).any()) {
+              result = false;
+            } else {
+              col |= col_cell;
+            }
+          }
+          const auto& field_cell = (*this)[L.pos_of_fieldcell(i, j)];
+          if (field_cell.count() == 1) {
+            if ((field & field_cell).any()) {
+              result = false;
+            } else {
+              field |= field_cell;
+            }
+          }
         }
-        result = result && row.all() && col.all() && field.all();
       }
       return result;
     }
