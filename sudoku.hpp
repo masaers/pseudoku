@@ -319,7 +319,7 @@ namespace com_masaers {
       for (int n = 0; n < board.L.N; ++n) {
         if (cell.test(n)) {
           sudoku_board b(board);
-          cell_type mask = ~cell_type();
+          cell_type mask = cell_type();
           mask.flip(n);
           b.apply_mask(pos, mask, back_inserter(agenda_m));
           clear_agenda(b);
