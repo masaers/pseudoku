@@ -5,11 +5,17 @@
 #include <vector>
 #include <stdexcept>
 #include <iostream>
+#include <tuple>
 
 namespace com_masaers {
+  // Example:
   // FROWS = 2, FCOLS = 3
-  // Each filed has 3 columns and 2 rows,
-  // meaning that the board is 6 x 6 cells big.
+  // ... means that each field (3x3 square in classic sudoku) has
+  // 3 columns and 2 rows. As each field is 2x3, the whole board 
+  // must be (2x3=) 6 cells big. This means that the board must 
+  // have 3 x 2 fields to get a total of (2x3=) 6 rows and
+  // (3x2=) 6 columns.
+  //
   // Each cell has a unique identifying position, laied out as follows:
   // 
   //  0  1  2 |  3  4  5
@@ -22,10 +28,17 @@ namespace com_masaers {
   // 30 31 32 | 33 34 35
   //
   // The fields are numbered in a similar way:
-  // 0 1
-  // 2 3
-  // 4 5
   //
+  //  0       | 1
+  //          |
+  // ---------+---------
+  //  2       | 3
+  //          |
+  // ---------+---------
+  // 4        | 5
+  //          |
+  //
+  // The rows and columns are numbered the usual way.
   
   
   /**
@@ -39,12 +52,15 @@ namespace com_masaers {
     static const int FIELDS_PER_ROW = FROWS;
     static const int FIELDS_PER_COL = FCOLS;
     typedef std::bitset<N> cell_type;
+    /// Gets the absolute position of the Cth cell in the ROWth row.
     static constexpr int pos_of_rowcell(const int row, const int cell) {
       return (row * N) + cell;
     }
+    // Gets the absolute position of the Cth cell in the COLth column.
     static constexpr int pos_of_colcell(const int col, const int cell) {
       return col + (cell * N);
     }
+    // Gets the absolute position of the Cth cell in the Fth field.
     static constexpr int pos_of_fieldcell(const int field, const int cell) {
       return ((field / FROWS) * FROWS * N) // field row offset
         +    ((field % FROWS) * FCOLS)     // field col offset
@@ -52,47 +68,61 @@ namespace com_masaers {
         +    (cell % FCOLS)                //  cell col offset
         ;
     }
+    // Gets the row of the Pth abolute position.
     static constexpr int row_of_pos(const int pos) {
       return pos / N;
     }
+    // Gets the column of the Pth absolute position.
     static constexpr int col_of_pos(const int pos) {
       return pos % N;
     }
+    // Gets the field of the Pth absolute position.
     static constexpr int field_of_pos(const int pos) {
       return ((row_of_pos(pos) / FROWS) * FROWS) + (col_of_pos(pos) / FCOLS);
     }
+    // The Pth abolsute position is this cell in its row.
     static constexpr int rowcell_of_pos(const int pos) {
       return col_of_pos(pos);
     }
+    // The Pth absolute position is this cell in its column.
     static constexpr int colcell_of_pos(const int pos) {
       return row_of_pos(pos);
     }
+    // The Pth absolute position is this cell in its field.
     static constexpr int fieldcell_of_pos(const int pos) {
       return ((row_of_pos(pos) % FROWS) * FCOLS)
         +    (col_of_pos(pos) % FCOLS)
         ;
     }
+    // Returns an iterator to the first dependent of an absolute position.
     constexpr const int* first_dep(const int pos) {
       return &dependents_m[pos][0];
     }
+    // Returns an iterator to the last dependent of an absolute position.
     constexpr const int* last_dep(const int pos) {
       return &dependents_m[pos][3*(N-1)];
     }
+    // Returns an iterator to the first cell in the same row.
     constexpr const int* first_row_dep(const int pos) {
       return first_dep(pos);
     }
+    // Returns an iterator to the last cell in the same row.
     constexpr const int* first_col_dep(const int pos) {
       return &dependents_m[pos][N-1];
     }
+    // Returns an iterator to the first cell in the same field.
     constexpr const int* first_field_dep(const int pos) {
       return &dependents_m[pos][2*(N-1)];
     }
+    // Returns an iterator to the last cell in the same field.
     constexpr const int* last_row_dep(const int pos) {
       return first_col_dep(pos);
     }
+    // Returns an iterator to the first cell in the same column.
     constexpr const int* last_col_dep(const int pos) {
       return first_field_dep(pos);
     }
+    // Returns an iterator to the last cell in the same column.
     constexpr const int* last_field_dep(const int pos) {
       return last_dep(pos);
     }
@@ -321,11 +351,14 @@ namespace com_masaers {
           sudoku_board b(board);
           cell_type mask = cell_type();
           mask.flip(n);
-          b.apply_mask(pos, mask, back_inserter(agenda_m));
-          clear_agenda(b);
-          if (b.valid()) {
-            board = b;
-            break;
+          try {
+            b.apply_mask(pos, mask, back_inserter(agenda_m));
+            clear_agenda(b);
+            if (b.valid()) {
+              board = b;
+              break;
+            }
+          } catch (...) {
           }
         }
       }
@@ -334,6 +367,60 @@ namespace com_masaers {
     agenda_type agenda_m;
   }; // trialanderror_solver
 
+  class exhaustive_solver {
+  public:
+    typedef std::deque<int> agenda_type;
+    void clear_agenda(sudoku_board& board) {
+      while (! agenda_m.empty()) {
+        board.propagate_solution(agenda_m.front(), back_inserter(agenda_m));
+        agenda_m.pop_front();
+      }
+    }
+    void operator()(sudoku_board& board) {
+      using namespace std;
+      typedef typename sudoku_board::cell_type cell_type;
+      clear_agenda(board);
+      vector<tuple<sudoku_board, int, int> > path{make_tuple(board, 0, 0)};
+      const auto cell_is_solved = [&]() -> bool {
+        return get<0>(path.back()).solved(get<1>(path.back()));
+      };
+      const auto cell_is_set = [&]() -> bool {
+        return get<0>(path.back())[get<1>(path.back())].test(get<2>(path.back()));
+      };
+      while (! path.empty() && ! get<0>(path.back()).solved()) {
+        for (; cell_is_solved(); ++get<1>(path.back()));
+        for (; get<2>(path.back()) < board.L.N; ++get<2>(path.back())) {
+          if (cell_is_set()) {
+            sudoku_board b(get<0>(path.back()));
+            cout << path.size() << ": " << get<1>(path.back()) << " " << get<2>(path.back()) << endl << get<0>(path.back()) << endl;
+            cell_type mask = cell_type();
+            mask.flip(get<2>(path.back()));
+            b.apply_mask(get<1>(path.back()), mask, back_inserter(agenda_m));
+            clear_agenda(b);
+            if (b.valid()) {
+              cout << (b.valid() ? "valid" : "invalid") << endl << b << endl;
+              path.push_back(make_tuple(move(b), get<1>(path.back()) + 1, 0));
+            } else {
+              cout << "continuing..." << endl;
+            }
+          }
+        }
+        ++get<1>(path.back());
+        get<2>(path.back()) = 0;
+        while (get<1>(path.back()) == board.L.NN) {
+          path.pop_back();
+          ++get<1>(path.back());
+          get<2>(path.back()) = 0;
+        }
+        // cout << path.size() << ": " << get<1>(path.back()) << " " << get<2>(path.back()) << endl << get<0>(path.back()) << endl;
+      }
+      if (! path.empty()) {
+        board = get<0>(path.back());
+      }
+    }
+  private:
+    agenda_type agenda_m;
+  }; // exhaustive_solver
   
 } // namespace com_masaers
 
