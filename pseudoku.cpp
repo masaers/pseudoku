@@ -18,12 +18,14 @@ int main(const int argc, const char** argv) {
   sudoku_board board;
   pseudoku_solver solve;
   trialanderror_solver trialanderror;
+  exhaustive_solver exhaustive;
   int tried_cells = 0;
 
   board.read(cin, back_inserter(solve.agenda()));
   if (! board.valid()) {
     cout << "Provided board not valid." << endl;
   }
+  solve.clear_agenda(board);
   cout << board << endl;
 
   // solve.clear_agenda(board);
@@ -36,17 +38,24 @@ int main(const int argc, const char** argv) {
   // cout << "Board is " << (board.valid() ? "" : "in") << "valid." << endl;
   // cout << board << endl;
 
-  while (board.valid() && ! board.solved()) {
-    solve(board);
-    cout << "Board is " << (board.valid() ? "" : "in") << "valid." << endl;
-    cout << board << endl;
-    if (! board.solved()) {
-      trialanderror(board);
-      ++tried_cells;
-      cout << "Board is " << (board.valid() ? "" : "in") << "valid." << endl;
-      cout << board << endl;
-    }
-  }
+  exhaustive(board);
+  // while (board.valid() && ! board.solved()) {
+  //   try {
+  //     sudoku_board b(board);
+  //     solve(b);
+  //     cout << "Pseudoku: board is " << (b.valid() ? "" : "in") << "valid." << endl;
+  //     cout << b << endl;
+  //     board = b;
+  //   } catch (...) {
+  //   }
+  //   if (! board.solved()) {
+  //     //exhaustive(board);
+  //     trialanderror(board);
+  //     ++tried_cells;
+  //     cout << "Board is " << (board.valid() ? "" : "in") << "valid." << endl;
+  //     cout << board << endl;
+  //   }
+  // }
   
   if (board.valid() && board.solved()) {
     cout << "Found a solution!";
