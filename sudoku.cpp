@@ -11,7 +11,7 @@ int main(const int argc, const char** argv) {
   using namespace com_masaers;
 
   int exit_status = EXIT_FAILURE;
-  std::size_t max_solutions = 10000;
+  std::size_t max_solutions = 1;
 
   sudoku_board board;
   trivial_solver trivial;
