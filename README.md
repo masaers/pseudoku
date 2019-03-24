@@ -9,7 +9,7 @@ To build this project, clone it from git (or download and unpack) into a directo
 Example:
 ```
 git clone [URL]
-cd psudoku
+cd pseudoku
 make
 time build/sudoku < data/norvig_hard1.txt
 ```
