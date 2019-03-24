@@ -192,14 +192,6 @@ namespace com_masaers {
       return result;
     }
     inline bool operator!=(const sudoku_board& x) const { return ! operator==(x); }
-    std::size_t hash() const {
-      std::size_t result = unknown_m;
-      hash_combine(result, invalid_m);
-      for (int i = 0; result && i < layout_type::NN; ++i) {
-        hash_combine(result, cells_m[i]);
-      }
-      return result;
-    }
     static const layout_type L;
     template<typename solved_it_T>
     void read(std::istream& is, solved_it_T&& solved_it) {
