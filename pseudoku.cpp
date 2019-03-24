@@ -17,8 +17,8 @@ int main(const int argc, const char** argv) {
   
   sudoku_board board;
   pseudoku_solver solve;
-  trialanderror_solver trialanderror;
-  exhaustive_solver exhaustive;
+  // trialanderror_solver trialanderror;
+  // exhaustive_solver exhaustive;
   int tried_cells = 0;
 
   board.read(cin, back_inserter(solve.agenda()));
@@ -38,7 +38,7 @@ int main(const int argc, const char** argv) {
   // cout << "Board is " << (board.valid() ? "" : "in") << "valid." << endl;
   // cout << board << endl;
 
-  exhaustive(board);
+  // exhaustive(board);
   // while (board.valid() && ! board.solved()) {
   //   try {
   //     sudoku_board b(board);

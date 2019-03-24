@@ -182,6 +182,24 @@ namespace com_masaers {
     int unknown_m;
     int invalid_m;
   public:
+    bool operator==(const sudoku_board& x) const {
+      bool result = unknown_m == x.unknown_m && invalid_m == x.invalid_m;
+      if (result) {
+        for (int i = 0; result && i < layout_type::NN; ++i) {
+          result = result && cells_m[i] == x.cells_m[i];
+        }
+      }
+      return result;
+    }
+    inline bool operator!=(const sudoku_board& x) const { return ! operator==(x); }
+    std::size_t hash() const {
+      std::size_t result = unknown_m;
+      hash_combine(result, invalid_m);
+      for (int i = 0; result && i < layout_type::NN; ++i) {
+        hash_combine(result, cells_m[i]);
+      }
+      return result;
+    }
     static const layout_type L;
     template<typename solved_it_T>
     void read(std::istream& is, solved_it_T&& solved_it) {
@@ -198,6 +216,21 @@ namespace com_masaers {
           cell.set(number - 1);
           *solved_it = pos;
           ++solved_it;
+        }
+      }
+    }
+    void read(std::istream& is) {
+      unknown_m = 0;
+      int number;
+      for (int pos = 0; pos < L.NN; ++pos) {
+        is >> number;
+        cell_type& cell = (*this)[pos];
+        cell.reset();
+        if (number == 0) {
+          cell = ~cell;
+          ++unknown_m;
+        } else {
+          cell.set(number - 1);
         }
       }
     }
@@ -227,21 +260,16 @@ namespace com_masaers {
       return result;
     }
     template<typename solved_it_T>
-    void apply_mask(const int pos,
-                    const cell_type& mask,
-                    solved_it_T&& solved_it) {
+    bool apply_mask(const int pos, cell_type mask, solved_it_T&& solved_it) {
       cell_type& cell = (*this)[pos];
-      if (! solved(cell)) {
-        cell &= mask;
-        if (solved(cell)) {
-          *solved_it = pos;
-          ++solved_it;
-          --unknown_m;
-        }
-        if (cell.none()) {
-          throw std::runtime_error("Applied mask to invalidate cell");
-        }
+      mask &= cell;
+      if (mask != cell && mask.count() == 1) {
+        *solved_it = pos;
+        ++solved_it;
+        --unknown_m;
       }
+      cell = mask;
+      return ! cell.none();
     }
     ///
     /// Only applies the mask if it solves the cell.
@@ -261,17 +289,24 @@ namespace com_masaers {
         }
       }
     }
+    static inline cell_type make_mask(int value) {
+      cell_type result;
+      result.flip(value);
+      return result;
+    }
     bool solved() const { return unknown_m == 0; }
     bool solved(const cell_type& cell) const { return cell.count() == 1; }
     bool solved(const int pos) const { return solved((*this)[pos]); }
     const int unknown() const { return unknown_m; }
     template<typename solved_it_T>
-    void propagate_solution(const int pos, solved_it_T&& solved_it) {
+    bool propagate_solution(const int pos, solved_it_T&& solved_it) {
       using namespace std;
+      bool result = true;
       cell_type mask = ~(*this)[pos];
-      for (auto it = L.first_dep(pos); it != L.last_dep(pos); ++it) {
-        apply_mask(*it, mask, solved_it);
+      for (auto it = L.first_dep(pos); result && it != L.last_dep(pos); ++it) {
+        result = result && apply_mask(*it, mask, solved_it);
       }
+      return result;
     }
     cell_type& operator[](const int pos) { return cells_m[pos]; }
     const cell_type& operator[](const int pos) const { return cells_m[pos]; }
@@ -312,116 +347,6 @@ namespace com_masaers {
 
   const sudoku_layout<3, 3> sudoku_board::L = sudoku_layout<3, 3>();
 
-
-
-  /**
-     Trial-and-error solver that tries different solution until
-     something sticks.
-   */
-  class trialanderror_solver {
-  public:
-    typedef std::deque<int> agenda_type;
-    agenda_type& agenda() { return agenda_m; }
-    void clear_agenda(sudoku_board& board) {
-      while (! agenda_m.empty()) {
-        board.propagate_solution(agenda_m.front(), back_inserter(agenda_m));
-        agenda_m.pop_front();
-      }
-    }
-    const int choose_pos(const sudoku_board& board) const {
-      int result = -1;
-      std::size_t count = -1;
-      for (int pos = 0; pos < board.L.NN; ++pos) {
-        const auto& cell = board[pos];
-        if (cell.count() > 1 && cell.count() < count) {
-          result = pos;
-          count = cell.count();
-        }
-      }
-      return result;
-    }
-    void operator()(sudoku_board& board) {
-      using namespace std;
-      typedef typename sudoku_board::cell_type cell_type;
-      clear_agenda(board);
-      const int pos = choose_pos(board);
-      const cell_type& cell = board[pos];
-      for (int n = 0; n < board.L.N; ++n) {
-        if (cell.test(n)) {
-          sudoku_board b(board);
-          cell_type mask = cell_type();
-          mask.flip(n);
-          try {
-            b.apply_mask(pos, mask, back_inserter(agenda_m));
-            clear_agenda(b);
-            if (b.valid()) {
-              board = b;
-              break;
-            }
-          } catch (...) {
-          }
-        }
-      }
-    }
-  private:
-    agenda_type agenda_m;
-  }; // trialanderror_solver
-
-  class exhaustive_solver {
-  public:
-    typedef std::deque<int> agenda_type;
-    void clear_agenda(sudoku_board& board) {
-      while (! agenda_m.empty()) {
-        board.propagate_solution(agenda_m.front(), back_inserter(agenda_m));
-        agenda_m.pop_front();
-      }
-    }
-    void operator()(sudoku_board& board) {
-      using namespace std;
-      typedef typename sudoku_board::cell_type cell_type;
-      clear_agenda(board);
-      vector<tuple<sudoku_board, int, int> > path{make_tuple(board, 0, 0)};
-      const auto cell_is_solved = [&]() -> bool {
-        return get<0>(path.back()).solved(get<1>(path.back()));
-      };
-      const auto cell_is_set = [&]() -> bool {
-        return get<0>(path.back())[get<1>(path.back())].test(get<2>(path.back()));
-      };
-      while (! path.empty() && ! get<0>(path.back()).solved()) {
-        for (; cell_is_solved(); ++get<1>(path.back()));
-        for (; get<2>(path.back()) < board.L.N; ++get<2>(path.back())) {
-          if (cell_is_set()) {
-            sudoku_board b(get<0>(path.back()));
-            cout << path.size() << ": " << get<1>(path.back()) << " " << get<2>(path.back()) << endl << get<0>(path.back()) << endl;
-            cell_type mask = cell_type();
-            mask.flip(get<2>(path.back()));
-            b.apply_mask(get<1>(path.back()), mask, back_inserter(agenda_m));
-            clear_agenda(b);
-            if (b.valid()) {
-              cout << (b.valid() ? "valid" : "invalid") << endl << b << endl;
-              path.push_back(make_tuple(move(b), get<1>(path.back()) + 1, 0));
-            } else {
-              cout << "continuing..." << endl;
-            }
-          }
-        }
-        ++get<1>(path.back());
-        get<2>(path.back()) = 0;
-        while (get<1>(path.back()) == board.L.NN) {
-          path.pop_back();
-          ++get<1>(path.back());
-          get<2>(path.back()) = 0;
-        }
-        // cout << path.size() << ": " << get<1>(path.back()) << " " << get<2>(path.back()) << endl << get<0>(path.back()) << endl;
-      }
-      if (! path.empty()) {
-        board = get<0>(path.back());
-      }
-    }
-  private:
-    agenda_type agenda_m;
-  }; // exhaustive_solver
-  
 } // namespace com_masaers
 
 #endif
