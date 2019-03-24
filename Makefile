@@ -11,7 +11,7 @@ CXXFLAGS+=-Wall -pedantic -std=c++11 -g -O3
 LDFLAGS=
 
 PROG_NAMES=
-TEST_NAMES=pseudoku
+TEST_NAMES=sudoku pseudoku
 
 #
 # Derived settings
