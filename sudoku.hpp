@@ -180,10 +180,9 @@ namespace com_masaers {
   protected:
     cell_type cells_m[layout_type::NN];
     int unknown_m;
-    int invalid_m;
   public:
     bool operator==(const sudoku_board& x) const {
-      bool result = unknown_m == x.unknown_m && invalid_m == x.invalid_m;
+      bool result = unknown_m == x.unknown_m;
       if (result) {
         for (int i = 0; result && i < layout_type::NN; ++i) {
           result = result && cells_m[i] == x.cells_m[i];
