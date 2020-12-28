@@ -3,6 +3,7 @@
 #include "sudoku.hpp"
 #include <unordered_map>
 #include <unordered_set>
+#include <deque>
 #include <array>
 
 namespace com_masaers {

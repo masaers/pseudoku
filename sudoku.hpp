@@ -1,11 +1,7 @@
 #ifndef COM_MASAERS_SUDOKU_HPP
 #define COM_MASAERS_SUDOKU_HPP
 #include <bitset>
-#include <deque>
-#include <vector>
-#include <stdexcept>
 #include <iostream>
-#include <tuple>
 
 namespace com_masaers {
   // Example:
@@ -125,34 +121,9 @@ namespace com_masaers {
       return last_dep(pos);
     }
   protected:
-    static std::array<std::array<int, 3*(N-1)>, NN> create_dependents() {
-      std::array<std::array<int, 3*(N-1)>, NN> result;
-      for (int pos = 0; pos < NN; ++pos) {
-        int dep = 0;
-        for (int col = 0; col < N; ++col) {
-          if (col != col_of_pos(pos)) {
-            result[pos][dep++] = pos_of_rowcol(row_of_pos(pos), col);
-          }
-        }
-        for (int row = 0; row < N; ++row) {
-          if (row != row_of_pos(pos)) {
-            result[pos][dep++] = pos_of_rowcol(row, col_of_pos(pos));
-          }
-        }
-        for (int room = 0; room < N; ++room) {
-          if (room != room_of_pos(pos)) {
-            result[pos][dep++] = pos_of_houseroom(house_of_pos(pos), room);
-          }
-        }
-      }
-      return result;
-    }
+    static std::array<std::array<int, 3*(N-1)>, NN> create_dependents();
     static const std::array<std::array<int, 3*(N-1)>, NN> dependents_m;
   }; // sudoku_layout
-
-  template<int HROWS, int HCOLS>
-  const std::array<std::array<int, 3*(sudoku_layout<HROWS, HCOLS>::N-1)>, sudoku_layout<HROWS, HCOLS>::NN>
-  sudoku_layout<HROWS, HCOLS>::dependents_m = sudoku_layout<HROWS, HCOLS>::create_dependents();
 
 
   /**
@@ -166,159 +137,248 @@ namespace com_masaers {
     cell_type cells_m[Layout::NN];
     int unknown_m;
   public:
-    bool operator==(const sudoku_board& x) const {
-      bool result = unknown_m == x.unknown_m;
-      if (result) {
-        for (int i = 0; result && i < Layout::NN; ++i) {
-          result = result && cells_m[i] == x.cells_m[i];
-        }
-      }
-      return result;
-    }
-    inline bool operator!=(const sudoku_board& x) const { return ! operator==(x); }
-    template<typename solved_it_T>
-    void read(std::istream& is, solved_it_T&& solved_it) {
-      unknown_m = 0;
-      int number;
-      for (int pos = 0; pos < Layout::NN; ++pos) {
-        is >> number;
-        cell_type& cell = (*this)[pos];
-        cell.reset();
-        if (number == 0) {
-          cell = ~cell;
-          ++unknown_m;
-        } else {
-          cell.set(number - 1);
-          *solved_it = pos;
-          ++solved_it;
-        }
-      }
-    }
-    void read(std::istream& is) {
-      unknown_m = 0;
-      int number;
-      for (int pos = 0; pos < Layout::NN; ++pos) {
-        is >> number;
-        cell_type& cell = (*this)[pos];
-        cell.reset();
-        if (number == 0) {
-          cell = ~cell;
-          ++unknown_m;
-        } else {
-          cell.set(number - 1);
-        }
-      }
-    }
-    friend std::ostream& operator<<(std::ostream& os, const sudoku_board& board) {
-      for (int i = 0; i < Layout::N; ++i) {
-        for (int j = 0; j < Layout::N; ++j) {
-          if (j != 0) { os << ' '; }
-          const auto& cell = board[Layout::pos_of_rowcol(i, j)];
-          for (int k = 0; k < Layout::N; ++k) {
-            if (cell[k]) {
-              os << (k + 1);
-            } else {
-              os << '.';
-            }
-          }
-        }
-        os << std::endl;
-      }
-      return os;
-    }
-    const cell_type get_known_buddies(const int pos) {
-      using namespace std;
-      cell_type result;
-      for (auto it = Layout::first_dep(pos); it != Layout::last_dep(pos); ++it) {
-        result |= (*this)[*it];
-      }
-      return result;
-    }
-    template<typename solved_it_T>
-    bool apply_mask(const int pos, cell_type mask, solved_it_T&& solved_it) {
-      cell_type& cell = (*this)[pos];
-      mask &= cell;
-      if (mask != cell && mask.count() == 1) {
-        *solved_it = pos;
-        ++solved_it;
-        --unknown_m;
-      }
-      cell = mask;
-      return ! cell.none();
-    }
-    ///
-    /// Only applies the mask if it solves the cell.
-    ///
-    template<typename solved_it_T>
-    void try_mask(const int pos,
-                  const cell_type& mask,
-                  solved_it_T&& solved_it) {
-      cell_type& cell = (*this)[pos];
-      if (! solved(cell)) {
-        const cell_type new_cell = cell & mask;
-        if (solved(new_cell)) {
-          cell = new_cell;
-          *solved_it = pos;
-          ++solved_it;
-          --unknown_m;
-        }
-      }
-    }
-    static inline cell_type make_mask(int value) {
-      cell_type result;
-      result.flip(value);
-      return result;
-    }
-    bool solved() const { return unknown_m == 0; }
-    bool solved(const cell_type& cell) const { return cell.count() == 1; }
-    bool solved(const int pos) const { return solved((*this)[pos]); }
-    const int unknown() const { return unknown_m; }
-    template<typename solved_it_T>
-    bool propagate_solution(const int pos, solved_it_T&& solved_it) {
-      using namespace std;
-      bool result = true;
-      cell_type mask = ~(*this)[pos];
-      for (auto it = Layout::first_dep(pos); result && it != Layout::last_dep(pos); ++it) {
-        result = result && apply_mask(*it, mask, solved_it);
-      }
-      return result;
-    }
-    cell_type& operator[](const int pos) { return cells_m[pos]; }
-    const cell_type& operator[](const int pos) const { return cells_m[pos]; }
-    bool valid() const {
-      bool result = true;
-      for (int i = 0; result && i < Layout::N; ++i) {
-        cell_type row, col, house;
-        for (int j = 0; result && j < Layout::N; ++j) {
-          const auto& row_cell = (*this)[Layout::pos_of_rowcol(i, j)];
-          if (row_cell.count() == 1) {
-            if ((row & row_cell).any()) {
-              result = false;
-            } else {
-              row |= row_cell;
-            }
-          }
-          const auto& col_cell = (*this)[Layout::pos_of_rowcol(j, i)];
-          if (col_cell.count() == 1) {
-            if ((col & col_cell).any()) {
-              result = false;
-            } else {
-              col |= col_cell;
-            }
-          }
-          const auto& room_cell = (*this)[Layout::pos_of_houseroom(i, j)];
-          if (room_cell.count() == 1) {
-            if ((house & room_cell).any()) {
-              result = false;
-            } else {
-              house |= room_cell;
-            }
-          }
-        }
-      }
-      return result;
-    }
+    static cell_type make_mask(int value);
+    bool operator==(const sudoku_board& x) const;
+    bool operator!=(const sudoku_board& x) const;
+    template<typename OutputIter> void read(std::istream& is, OutputIter&& out);
+    void read(std::istream& is);
+    void print_to(std::ostream& os) const; 
+    const cell_type get_known_buddies(const int pos);
+    template<typename OutputIter> bool apply_mask(const int pos, cell_type mask, OutputIter&& out);
+    template<typename OutputIter> void try_mask(const int pos, const cell_type& mask, OutputIter&& out);
+    bool solved() const;
+    bool solved(const cell_type& cell) const;
+    bool solved(const int pos) const;
+    const int unknown() const;
+    template<typename OutputIter> bool propagate_solution(const int pos, OutputIter&& out);
+    cell_type& operator[](const int pos);
+    const cell_type& operator[](const int pos) const;
+    bool valid() const;
+    friend std::ostream& operator<<(std::ostream& os, const sudoku_board& board) { board.print_to(os); return os; }
   }; // sudoku_board
 } // namespace com_masaers
+
+
+template<int HROWS, int HCOLS>
+const std::array<std::array<int, 3*(com_masaers::sudoku_layout<HROWS, HCOLS>::N-1)>, com_masaers::sudoku_layout<HROWS, HCOLS>::NN>
+com_masaers::sudoku_layout<HROWS, HCOLS>::dependents_m = com_masaers::sudoku_layout<HROWS, HCOLS>::create_dependents();
+
+template<int HROWS, int HCOLS>
+std::array<std::array<int, 3*(com_masaers::sudoku_layout<HROWS, HCOLS>::N-1)>, com_masaers::sudoku_layout<HROWS, HCOLS>::NN>
+com_masaers::sudoku_layout<HROWS, HCOLS>::create_dependents() {
+  std::array<std::array<int, 3*(N-1)>, NN> result;
+  for (int pos = 0; pos < NN; ++pos) {
+    int dep = 0;
+    for (int col = 0; col < N; ++col) {
+      if (col != col_of_pos(pos)) {
+        result[pos][dep++] = pos_of_rowcol(row_of_pos(pos), col);
+      }
+    }
+    for (int row = 0; row < N; ++row) {
+      if (row != row_of_pos(pos)) {
+        result[pos][dep++] = pos_of_rowcol(row, col_of_pos(pos));
+      }
+    }
+    for (int room = 0; room < N; ++room) {
+      if (room != room_of_pos(pos)) {
+        result[pos][dep++] = pos_of_houseroom(house_of_pos(pos), room);
+      }
+    }
+  }
+  return result;
+}
+
+template<typename Layout>
+inline bool com_masaers::sudoku_board<Layout>::operator==(const sudoku_board& x) const {
+  bool result = unknown_m == x.unknown_m;
+  if (result) {
+    for (int i = 0; result && i < Layout::NN; ++i) {
+      result = result && cells_m[i] == x.cells_m[i];
+    }
+  }
+  return result;
+}
+
+template<typename Layout>
+inline bool com_masaers::sudoku_board<Layout>::operator!=(const sudoku_board& x) const {
+  return ! operator==(x);
+}
+
+template<typename Layout>
+template<typename solved_it_T>
+void com_masaers::sudoku_board<Layout>::read(std::istream& is, solved_it_T&& solved_it) {
+  unknown_m = 0;
+  int number;
+  for (int pos = 0; pos < Layout::NN; ++pos) {
+    is >> number;
+    cell_type& cell = (*this)[pos];
+    cell.reset();
+    if (number == 0) {
+      cell = ~cell;
+      ++unknown_m;
+    } else {
+      cell.set(number - 1);
+      *solved_it = pos;
+      ++solved_it;
+    }
+  }
+}
+
+template<typename Layout>
+void com_masaers::sudoku_board<Layout>::read(std::istream& is) {
+  unknown_m = 0;
+  int number;
+  for (int pos = 0; pos < Layout::NN; ++pos) {
+    is >> number;
+    cell_type& cell = (*this)[pos];
+    cell.reset();
+    if (number == 0) {
+      cell = ~cell;
+      ++unknown_m;
+    } else {
+      cell.set(number - 1);
+    }
+  }
+}
+
+template<typename Layout>
+void com_masaers::sudoku_board<Layout>::print_to(std::ostream& os) const {
+  for (int i = 0; i < Layout::N; ++i) {
+    for (int j = 0; j < Layout::N; ++j) {
+      if (j != 0) { os << ' '; }
+      const auto& cell = (*this)[Layout::pos_of_rowcol(i, j)];
+      for (int k = 0; k < Layout::N; ++k) {
+        if (cell[k]) {
+          os << (k + 1);
+        } else {
+          os << '.';
+        }
+      }
+    }
+    os << std::endl;
+  }
+}
+
+template<typename Layout>
+inline const typename Layout::cell_type com_masaers::sudoku_board<Layout>::get_known_buddies(const int pos) {
+  cell_type result;
+  for (auto it = Layout::first_dep(pos); it != Layout::last_dep(pos); ++it) {
+    result |= (*this)[*it];
+  }
+  return result;
+}
+
+template<typename Layout>
+template<typename OutputIter>
+inline bool com_masaers::sudoku_board<Layout>::apply_mask(const int pos, cell_type mask, OutputIter&& out) {
+  cell_type& cell = (*this)[pos];
+  mask &= cell;
+  if (mask != cell && mask.count() == 1) {
+    *out = pos;
+    ++out;
+    --unknown_m;
+  }
+  cell = mask;
+  return ! cell.none();
+}
+
+template<typename Layout>
+template<typename OutputIter>
+inline void com_masaers::sudoku_board<Layout>::try_mask(const int pos, const cell_type& mask, OutputIter&& out) {
+  cell_type& cell = (*this)[pos];
+  if (! solved(cell)) {
+    const cell_type new_cell = cell & mask;
+    if (solved(new_cell)) {
+      cell = new_cell;
+      *out = pos;
+      ++out;
+      --unknown_m;
+    }
+  }
+}
+
+template<typename Layout>
+inline typename Layout::cell_type com_masaers::sudoku_board<Layout>::make_mask(int value) {
+  cell_type result;
+  result.flip(value);
+  return result;
+}
+
+template<typename Layout>
+inline bool com_masaers::sudoku_board<Layout>::solved() const {
+  return unknown_m == 0;
+}
+
+template<typename Layout>
+inline bool com_masaers::sudoku_board<Layout>::solved(const cell_type& cell) const {
+  return cell.count() == 1;
+}
+
+template<typename Layout>
+inline bool com_masaers::sudoku_board<Layout>::solved(const int pos) const {
+  return solved((*this)[pos]);
+}
+
+template<typename Layout>
+inline const int com_masaers::sudoku_board<Layout>::unknown() const {
+  return unknown_m;
+}
+
+template<typename Layout>
+template<typename OutputIter>
+inline bool com_masaers::sudoku_board<Layout>::propagate_solution(const int pos, OutputIter&& out) {
+  using namespace std;
+  bool result = true;
+  cell_type mask = ~(*this)[pos];
+  for (auto it = Layout::first_dep(pos); result && it != Layout::last_dep(pos); ++it) {
+    result = result && apply_mask(*it, mask, out);
+  }
+  return result;
+}
+
+template<typename Layout>
+inline typename Layout::cell_type& com_masaers::sudoku_board<Layout>::operator[](const int pos) {
+  return cells_m[pos];
+}
+
+template<typename Layout>
+inline const typename Layout::cell_type& com_masaers::sudoku_board<Layout>::operator[](const int pos) const {
+  return cells_m[pos];
+}
+
+template<typename Layout>
+bool com_masaers::sudoku_board<Layout>::valid() const {
+  bool result = true;
+  for (int i = 0; result && i < Layout::N; ++i) {
+    cell_type row, col, house;
+    for (int j = 0; result && j < Layout::N; ++j) {
+      const auto& row_cell = (*this)[Layout::pos_of_rowcol(i, j)];
+      if (row_cell.count() == 1) {
+        if ((row & row_cell).any()) {
+          result = false;
+        } else {
+          row |= row_cell;
+        }
+      }
+      const auto& col_cell = (*this)[Layout::pos_of_rowcol(j, i)];
+      if (col_cell.count() == 1) {
+        if ((col & col_cell).any()) {
+          result = false;
+        } else {
+          col |= col_cell;
+        }
+      }
+      const auto& room_cell = (*this)[Layout::pos_of_houseroom(i, j)];
+      if (room_cell.count() == 1) {
+        if ((house & room_cell).any()) {
+          result = false;
+        } else {
+          house |= room_cell;
+        }
+      }
+    }
+  }
+  return result;
+}
 
 #endif
