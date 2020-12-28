@@ -3,19 +3,20 @@
 
 namespace com_masaers {
 
+  template<typename Layout>
   class trivial_solver {
   protected:
     std::deque<int> agenda_m;
     std::deque<int>& agenda() { return agenda_m; }
-    void analyze_board(const sudoku_board& board) {
+    void analyze_board(const sudoku_board<Layout>& board) {
       agenda_m.clear();
-      for (int pos = 0; pos < sudoku_board::L.NN; ++pos) {
+      for (int pos = 0; pos < Layout::NN; ++pos) {
         if (board.solved(pos)) {
           agenda_m.emplace_back(pos);
         }
       }
     }
-    bool propagate_solutions(sudoku_board& board) {
+    bool propagate_solutions(sudoku_board<Layout>& board) {
       bool result = true;
       while (result && ! agenda_m.empty()) {
         result = board.propagate_solution(agenda_m.front(), back_inserter(agenda_m));
@@ -24,12 +25,12 @@ namespace com_masaers {
       agenda_m.clear();
       return result;
     }
-    bool apply_mask(sudoku_board& board, int pos, const typename sudoku_board::cell_type& mask) {
+    bool apply_mask(sudoku_board<Layout>& board, int pos, const typename sudoku_board<Layout>::cell_type& mask) {
       return board.apply_mask(pos, mask, back_inserter(agenda_m))
       &&     propagate_solutions(board);
     }
   public:
-    sudoku_board operator()(sudoku_board board) {
+    sudoku_board<Layout> operator()(sudoku_board<Layout> board) {
       analyze_board(board);
       propagate_solutions(board);
       return board;
@@ -37,10 +38,11 @@ namespace com_masaers {
   }; // trivial_solver
 
 
-  class depth_first_solver : trivial_solver {
-    std::vector<sudoku_board> solutions_m;
+  template<typename Layout>
+  class depth_first_solver : trivial_solver<Layout> {
+    std::vector<sudoku_board<Layout> > solutions_m;
   public:
-    const sudoku_board& operator()(const sudoku_board& board) {
+    const sudoku_board<Layout>& operator()(const sudoku_board<Layout>& board) {
       solutions_m.clear();
       depth_first(board, 1);
       if (solutions_m.empty()) {
@@ -49,7 +51,7 @@ namespace com_masaers {
         return solutions_m.front();
       }
     }
-    const std::vector<sudoku_board>& operator()(const sudoku_board& board, std::size_t solutions) {
+    const std::vector<sudoku_board<Layout> >& operator()(const sudoku_board<Layout>& board, std::size_t solutions) {
       solutions_m.clear();
       depth_first(board, solutions);
       return solutions_m;
@@ -74,22 +76,22 @@ namespace com_masaers {
     //     return false;
     //   }
     // }
-    void depth_first(const sudoku_board& board, std::size_t solutions) {
+    void depth_first(const sudoku_board<Layout>& board, std::size_t solutions) {
       using namespace std;
-      vector<sudoku_board> frontier{{ board }};
+      vector<sudoku_board<Layout> > frontier{{ board }};
       while (! frontier.empty() && solutions_m.size() < solutions) {
         if (frontier.back().solved()) {
           solutions_m.emplace_back(frontier.back());
           frontier.pop_back();
         } else {
-          sudoku_board b = frontier.back();
+          sudoku_board<Layout> b = frontier.back();
           frontier.pop_back();
-          for (int pos = 0; pos < sudoku_board::L.NN; ++pos) {
+          for (int pos = 0; pos < Layout::NN; ++pos) {
             if (! b.solved(pos)) {
-              for (int value = 0; value < sudoku_board::L.N; ++value) {
+              for (int value = 0; value < Layout::N; ++value) {
                 if (b[pos][value]) {
                   frontier.emplace_back(b);
-                  if (! apply_mask(frontier.back(), pos, sudoku_board::make_mask(value))) {
+                  if (! this->apply_mask(frontier.back(), pos, sudoku_board<Layout>::make_mask(value))) {
                     frontier.pop_back();
                   }
                 }

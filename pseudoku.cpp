@@ -15,8 +15,8 @@ int main(const int argc, const char** argv) {
   using namespace std;
   using namespace com_masaers;
   
-  sudoku_board board;
-  pseudoku_solver solve;
+  sudoku_board<> board;
+  pseudoku_solver<> solve;
   // trialanderror_solver trialanderror;
   // exhaustive_solver exhaustive;
   int tried_cells = 0;

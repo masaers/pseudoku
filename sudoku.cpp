@@ -7,11 +7,12 @@
 #include <functional>
 #include <algorithm>
 
-bool process_board(com_masaers::sudoku_board& board, com_masaers::timer& solve_time, const std::size_t max_solutions) {
+template<typename Layout>
+bool process_board(com_masaers::sudoku_board<Layout>& board, com_masaers::timer& solve_time, const std::size_t max_solutions) {
   using namespace std;
   using namespace com_masaers;
-  static trivial_solver trivial;
-  static depth_first_solver depth_first;
+  static trivial_solver<Layout> trivial;
+  static depth_first_solver<Layout> depth_first;
   bool result = false;
   timer local_time;
   if (board.valid()) {
@@ -28,7 +29,9 @@ bool process_board(com_masaers::sudoku_board& board, com_masaers::timer& solve_t
       local_time.start();
       auto boards = depth_first(board, max_solutions);
       local_time.stop();
-      if (! boards.empty()) {
+      if (boards.empty()) {
+        cout << "Failed to find solution." << endl;
+      } else {
         cout << boards.front() << endl;
         cout << "Found " << boards.size() << " solution(s)!" << endl;
         result = true;
@@ -53,7 +56,7 @@ int main(const int argc, const char** argv) {
   bool exit_status = true;
   std::size_t max_solutions = 1;
 
-  sudoku_board board;
+  sudoku_board<> board;
 
   if (argc > 1) {
     for (int i = 1; i < argc; ++i) {
